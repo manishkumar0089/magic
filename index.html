@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magic Winner</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        .box { display: inline-block; width: 150px; height: 150px; margin: 20px; font-size: 20px; line-height: 150px; cursor: pointer; }
+        .green { background-color: green; color: white; }
+        .blue { background-color: blue; color: white; }
+    </style>
+</head>
+<body>
+    <h1>Magic Winner</h1>
+    <div>
+        <label>Username: <input type="text" id="username"></label>
+        <label>UPI ID: <input type="text" id="upi"></label>
+        <button onclick="registerUser()">Register</button>
+    </div>
+    <div>
+        <label>Deposit Amount: <input type="number" id="depositAmount"></label>
+        <button onclick="depositMoney()">Deposit</button>
+    </div>
+    <div>
+        <label>Withdraw Amount: <input type="number" id="withdrawAmount"></label>
+        <button onclick="withdrawMoney()">Withdraw</button>
+    </div>
+    <h2>Place Your Bet</h2>
+    <div class="box green" onclick="placeBet('GREEN')">Green</div>
+    <div class="box blue" onclick="placeBet('BLUE')">Blue</div>
+    <p id="gameStatus">Waiting for game...</p>
+    <script>
+        let userId = null;
+        let gameId = null;
+        let socket = new WebSocket("ws://localhost:8000/ws");
+
+        socket.onmessage = function(event) {
+            let data = JSON.parse(event.data);
+            if (data.event === "new_game") {
+                gameId = data.game_id;
+                document.getElementById("gameStatus").innerText = "New Game Started! Place your bets.";
+            } else if (data.event === "game_result") {
+                document.getElementById("gameStatus").innerText = "Winner: " + data.winner;
+            }
+        };
+
+        function registerUser() {
+            let username = document.getElementById("username").value;
+            let upi = document.getElementById("upi").value;
+            fetch("/register", { method: "POST", body: new URLSearchParams({ username, upi_id: upi }) })
+                .then(res => res.json()).then(data => { userId = data.user_id; alert("Registered Successfully"); });
+        }
+
+        function depositMoney() {
+            let amount = document.getElementById("depositAmount").value;
+            fetch("/deposit", { method: "POST", body: new URLSearchParams({ user_id: userId, amount }) })
+                .then(res => res.json()).then(data => alert(data.message));
+        }
+
+        function withdrawMoney() {
+            let amount = document.getElementById("withdrawAmount").value;
+            fetch("/withdraw", { method: "POST", body: new URLSearchParams({ user_id: userId, amount }) })
+                .then(res => res.json()).then(data => alert(data.message));
+        }
+
+        function placeBet(box) {
+            if (!gameId) return alert("No active game");
+            let amount = prompt("Enter bet amount");
+            fetch("/bet", { method: "POST", body: new URLSearchParams({ user_id: userId, game_id: gameId, box_choice: box, amount }) })
+                .then(res => res.json()).then(data => alert(data.message));
+        }
+    </script>
+</body>
+</html>
